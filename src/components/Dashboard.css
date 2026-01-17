@@ -1,0 +1,325 @@
+.dashboard-container {
+  max-width: 1200px;
+}
+
+.dashboard-container h2 {
+  margin-bottom: 0.5rem;
+  color: #212529;
+}
+
+.dashboard-subtitle {
+  color: #6c757d;
+  margin-bottom: 2rem;
+}
+
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #212529;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-card {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card h3 {
+  margin: 0 0 1.5rem 0;
+  color: #212529;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.progress-item {
+  margin-bottom: 1rem;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.progress-value {
+  font-size: 1.25rem;
+  color: #667eea;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background: #e9ecef;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.6s ease;
+  border-radius: 6px;
+}
+
+.progress-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.detail-label {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.detail-value {
+  font-weight: 600;
+  color: #212529;
+}
+
+.category-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.category-stat-item {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.category-stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.category-name-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.category-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-name {
+  font-weight: 600;
+  color: #212529;
+}
+
+.category-stat-value {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.category-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.category-progress-fill {
+  height: 100%;
+  transition: width 0.6s ease;
+  border-radius: 4px;
+}
+
+.category-stat-footer {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.recent-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.activity-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.activity-item:hover {
+  background: #e9ecef;
+}
+
+.activity-thumbnail {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.activity-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-title {
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.activity-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.activity-separator {
+  color: #adb5bd;
+}
+
+.activity-status {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+.activity-status.status-completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.activity-status.status-in-progress {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.activity-status.status-unwatched {
+  background: #f8f9fa;
+  color: #6c757d;
+}
+
+.empty-state {
+  text-align: center;
+  color: #6c757d;
+  padding: 2rem 1rem;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stat-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .activity-thumbnail {
+    width: 80px;
+    height: 45px;
+  }
+
+  .activity-item {
+    flex-direction: column;
+  }
+
+  .activity-status {
+    align-self: stretch;
+    text-align: center;
+  }
+}
