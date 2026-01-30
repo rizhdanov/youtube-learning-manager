@@ -5,6 +5,9 @@ import json
 import os
 import base64
 import requests
+import tempfile
+import subprocess
+from openai import OpenAI
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -14,6 +17,9 @@ ytt_api = YouTubeTranscriptApi()
 
 # YouTube Data API base URL
 YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
+
+# Temp directory for audio files
+TEMP_DIR = tempfile.gettempdir()
 
 # Data directory paths (stored in backend/data folder)
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -236,10 +242,27 @@ def get_transcript(video_id):
                 'method': 'youtube_transcript_api_fallback'
             })
         except Exception as e2:
-            return jsonify({
-                'success': False,
-                'error': str(e2)
-            }), 404
+            print(f"YouTube transcript fallback also failed: {e2}")
+
+            # Final fallback: Use Whisper to transcribe audio
+            try:
+                print(f"Attempting Whisper transcription for {video_id}")
+                transcript = transcribe_with_whisper(video_id)
+                if transcript:
+                    return jsonify({
+                        'success': True,
+                        'video_id': video_id,
+                        'transcript': transcript,
+                        'method': 'whisper'
+                    })
+                else:
+                    raise Exception("Whisper transcription returned empty result")
+            except Exception as e3:
+                print(f"Whisper transcription failed: {e3}")
+                return jsonify({
+                    'success': False,
+                    'error': f"All transcript methods failed. Last error: {str(e3)}"
+                }), 404
 
 
 def fetch_transcript_with_auth(video_id, access_token):
@@ -350,6 +373,97 @@ def parse_srt_to_text(srt_content):
         text_parts.append(line)
 
     return ' '.join(text_parts)
+
+
+def get_openai_api_key():
+    """Get OpenAI API key from settings file"""
+    try:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+                return settings.get('openaiApiKey', '')
+    except Exception as e:
+        print(f"Error reading OpenAI API key: {e}")
+    return None
+
+
+def transcribe_with_whisper(video_id):
+    """Download video audio and transcribe using OpenAI Whisper"""
+    api_key = get_openai_api_key()
+    if not api_key:
+        raise Exception("OpenAI API key not configured")
+
+    audio_path = None
+    try:
+        # Download audio using yt-dlp
+        audio_path = download_audio(video_id)
+        if not audio_path or not os.path.exists(audio_path):
+            raise Exception("Failed to download audio")
+
+        print(f"Audio downloaded to: {audio_path}")
+
+        # Transcribe with Whisper
+        client = OpenAI(api_key=api_key)
+
+        with open(audio_path, 'rb') as audio_file:
+            print("Sending audio to Whisper API...")
+            transcription = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="text"
+            )
+
+        print(f"Whisper transcription complete, length: {len(transcription)}")
+        return transcription
+
+    finally:
+        # Clean up audio file
+        if audio_path and os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
+                print(f"Cleaned up audio file: {audio_path}")
+            except Exception as e:
+                print(f"Failed to clean up audio file: {e}")
+
+
+def download_audio(video_id):
+    """Download audio from YouTube video using yt-dlp"""
+    import yt_dlp
+
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    output_path = os.path.join(TEMP_DIR, f"{video_id}.mp3")
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': os.path.join(TEMP_DIR, f"{video_id}.%(ext)s"),
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '64',  # Lower quality for faster upload
+        }],
+        'quiet': True,
+        'no_warnings': True,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f"Downloading audio for video: {video_id}")
+            ydl.download([url])
+
+        if os.path.exists(output_path):
+            return output_path
+        else:
+            # Check for other extensions in case ffmpeg isn't available
+            for ext in ['m4a', 'webm', 'opus']:
+                alt_path = os.path.join(TEMP_DIR, f"{video_id}.{ext}")
+                if os.path.exists(alt_path):
+                    return alt_path
+
+        raise Exception("Audio file not found after download")
+
+    except Exception as e:
+        print(f"Error downloading audio: {e}")
+        raise
 
 
 @app.route('/api/health', methods=['GET'])
