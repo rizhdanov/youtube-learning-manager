@@ -429,35 +429,57 @@ def transcribe_with_whisper(video_id):
 def download_audio(video_id):
     """Download audio from YouTube video using yt-dlp"""
     import yt_dlp
+    import glob
 
     url = f"https://www.youtube.com/watch?v={video_id}"
-    output_path = os.path.join(TEMP_DIR, f"{video_id}.mp3")
+    output_file = os.path.join(TEMP_DIR, f"{video_id}_audio.mp3")
 
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': os.path.join(TEMP_DIR, f"{video_id}.%(ext)s"),
+        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best[height<=480]',
+        'outtmpl': os.path.join(TEMP_DIR, f"{video_id}_audio.%(ext)s"),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
-            'preferredquality': '64',  # Lower quality for faster upload
+            'preferredquality': '64',
         }],
-        'quiet': True,
-        'no_warnings': True,
+        'quiet': False,
+        'no_warnings': False,
+        'extract_flat': False,
+        'ignoreerrors': False,
     }
 
     try:
+        # Clean up any existing files first
+        pattern = os.path.join(TEMP_DIR, f"{video_id}_audio.*")
+        for old_file in glob.glob(pattern):
+            try:
+                os.remove(old_file)
+            except:
+                pass
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             print(f"Downloading audio for video: {video_id}")
-            ydl.download([url])
+            info = ydl.extract_info(url, download=True)
+            print(f"Download complete. Title: {info.get('title', 'Unknown')}")
 
-        if os.path.exists(output_path):
-            return output_path
-        else:
-            # Check for other extensions in case ffmpeg isn't available
-            for ext in ['m4a', 'webm', 'opus']:
-                alt_path = os.path.join(TEMP_DIR, f"{video_id}.{ext}")
-                if os.path.exists(alt_path):
-                    return alt_path
+        # Find the downloaded file
+        pattern = os.path.join(TEMP_DIR, f"{video_id}_audio.*")
+        matching_files = glob.glob(pattern)
+        print(f"Looking for files matching: {pattern}")
+        print(f"Found files: {matching_files}")
+
+        # Filter for audio files
+        audio_extensions = ['.mp3', '.m4a', '.webm', '.opus', '.ogg', '.wav', '.aac']
+        for filepath in matching_files:
+            ext = os.path.splitext(filepath)[1].lower()
+            if ext in audio_extensions:
+                file_size = os.path.getsize(filepath)
+                print(f"Using audio file: {filepath} ({file_size} bytes)")
+                return filepath
+
+        if matching_files:
+            print(f"No standard audio extension, using: {matching_files[0]}")
+            return matching_files[0]
 
         raise Exception("Audio file not found after download")
 
