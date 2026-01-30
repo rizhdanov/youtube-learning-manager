@@ -4,12 +4,16 @@ from youtube_transcript_api import YouTubeTranscriptApi
 import json
 import os
 import base64
+import requests
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Create API instance
 ytt_api = YouTubeTranscriptApi()
+
+# YouTube Data API base URL
+YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
 # Data directory paths (stored in backend/data folder)
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
@@ -175,18 +179,38 @@ def save_sketchnote(video_id):
 
 @app.route('/api/transcript/<video_id>', methods=['GET'])
 def get_transcript(video_id):
-    """Fetch transcript for a YouTube video"""
-    try:
-        # Fetch transcript using the new API (requires instance)
-        transcript = ytt_api.fetch(video_id, languages=['en', 'en-US', 'en-GB', 'ru', 'de', 'fr', 'es'])
+    """Fetch transcript for a YouTube video using OAuth token"""
+    # Get OAuth token from Authorization header
+    auth_header = request.headers.get('Authorization')
+    access_token = None
 
-        # Combine all text segments into a single string
+    if auth_header and auth_header.startswith('Bearer '):
+        access_token = auth_header.split(' ')[1]
+
+    # Try authenticated method first (YouTube Data API)
+    if access_token:
+        try:
+            transcript = fetch_transcript_with_auth(video_id, access_token)
+            if transcript:
+                return jsonify({
+                    'success': True,
+                    'video_id': video_id,
+                    'transcript': transcript,
+                    'method': 'youtube_api'
+                })
+        except Exception as e:
+            print(f"Authenticated transcript fetch failed: {e}")
+
+    # Fallback to youtube_transcript_api (unauthenticated)
+    try:
+        transcript = ytt_api.fetch(video_id, languages=['en', 'en-US', 'en-GB', 'ru', 'de', 'fr', 'es'])
         full_text = ' '.join([entry.text for entry in transcript])
 
         return jsonify({
             'success': True,
             'video_id': video_id,
-            'transcript': full_text
+            'transcript': full_text,
+            'method': 'youtube_transcript_api'
         })
 
     except Exception as e:
@@ -196,20 +220,130 @@ def get_transcript(video_id):
         # Try without language preference (get any available)
         try:
             transcript_list = ytt_api.list(video_id)
-            # Get the first available transcript
             transcript = transcript_list[0].fetch()
             full_text = ' '.join([entry.text for entry in transcript])
 
             return jsonify({
                 'success': True,
                 'video_id': video_id,
-                'transcript': full_text
+                'transcript': full_text,
+                'method': 'youtube_transcript_api_fallback'
             })
         except Exception as e2:
             return jsonify({
                 'success': False,
                 'error': str(e2)
             }), 404
+
+
+def fetch_transcript_with_auth(video_id, access_token):
+    """Fetch transcript using YouTube Data API with OAuth authentication"""
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Accept': 'application/json'
+    }
+
+    # Step 1: Get caption tracks for the video
+    captions_url = f"{YOUTUBE_API_BASE}/captions"
+    params = {
+        'videoId': video_id,
+        'part': 'snippet'
+    }
+
+    response = requests.get(captions_url, headers=headers, params=params)
+
+    if response.status_code != 200:
+        print(f"Failed to list captions: {response.status_code} - {response.text}")
+        return None
+
+    captions_data = response.json()
+
+    if not captions_data.get('items'):
+        print(f"No captions found for video {video_id}")
+        return None
+
+    # Find best caption track (prefer manual, then auto-generated, English first)
+    caption_track = None
+    for item in captions_data['items']:
+        snippet = item['snippet']
+        lang = snippet.get('language', '')
+        track_kind = snippet.get('trackKind', '')
+
+        # Prefer English tracks
+        if lang.startswith('en'):
+            if track_kind != 'ASR' or caption_track is None:
+                caption_track = item
+                if track_kind != 'ASR':  # Found manual English track, use it
+                    break
+
+    # If no English, take the first available
+    if not caption_track:
+        caption_track = captions_data['items'][0]
+
+    caption_id = caption_track['id']
+    print(f"Using caption track: {caption_id} ({caption_track['snippet'].get('language')})")
+
+    # Step 2: Download the caption track
+    download_url = f"{YOUTUBE_API_BASE}/captions/{caption_id}"
+    params = {'tfmt': 'srt'}  # Request SRT format
+
+    response = requests.get(download_url, headers=headers, params=params)
+
+    if response.status_code != 200:
+        print(f"Failed to download captions: {response.status_code} - {response.text}")
+        # Try alternative: use timedtext API
+        return fetch_transcript_timedtext(video_id, caption_track['snippet'].get('language', 'en'))
+
+    # Parse SRT format to plain text
+    srt_content = response.text
+    return parse_srt_to_text(srt_content)
+
+
+def fetch_transcript_timedtext(video_id, lang='en'):
+    """Fetch transcript using YouTube's timedtext API (alternative method)"""
+    # This uses the same endpoint as youtube_transcript_api but with different parameters
+    url = f"https://www.youtube.com/api/timedtext"
+    params = {
+        'v': video_id,
+        'lang': lang,
+        'fmt': 'json3'
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if 'events' in data:
+                text_parts = []
+                for event in data['events']:
+                    if 'segs' in event:
+                        for seg in event['segs']:
+                            if 'utf8' in seg:
+                                text_parts.append(seg['utf8'])
+                return ' '.join(text_parts).replace('\n', ' ').strip()
+    except Exception as e:
+        print(f"Timedtext fetch failed: {e}")
+
+    return None
+
+
+def parse_srt_to_text(srt_content):
+    """Parse SRT subtitle format to plain text"""
+    lines = srt_content.strip().split('\n')
+    text_parts = []
+
+    for line in lines:
+        line = line.strip()
+        # Skip sequence numbers, timestamps, and empty lines
+        if not line:
+            continue
+        if line.isdigit():
+            continue
+        if '-->' in line:
+            continue
+        text_parts.append(line)
+
+    return ' '.join(text_parts)
 
 
 @app.route('/api/health', methods=['GET'])

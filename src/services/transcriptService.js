@@ -1,4 +1,5 @@
 import axios from 'axios';
+import authService from './authService';
 
 // Use environment variable for backend URL, fallback to localhost for development
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -7,17 +8,29 @@ const TRANSCRIPT_API_URL = `${BACKEND_URL}/api`;
 class TranscriptService {
   /**
    * Fetch transcript for a YouTube video using Python backend
+   * Uses OAuth token for authenticated requests to avoid rate limiting
    */
   async fetchTranscript(videoId) {
     try {
       console.log('Fetching transcript for video:', videoId);
 
-      const response = await axios.get(`${TRANSCRIPT_API_URL}/transcript/${videoId}`);
+      // Get OAuth token if available for authenticated request
+      const headers = {};
+      if (authService.isAuthenticated()) {
+        try {
+          const token = await authService.getValidAccessToken();
+          headers['Authorization'] = `Bearer ${token}`;
+          console.log('Using authenticated request for transcript');
+        } catch (e) {
+          console.log('Could not get auth token, using unauthenticated request');
+        }
+      }
+
+      const response = await axios.get(`${TRANSCRIPT_API_URL}/transcript/${videoId}`, { headers });
 
       if (response.data.success) {
         console.log('Transcript fetched successfully');
-        console.log('Language:', response.data.language);
-        console.log('Is auto-generated:', response.data.is_generated);
+        console.log('Method used:', response.data.method);
         console.log('Transcript length:', response.data.transcript.length);
 
         return response.data.transcript;
@@ -32,7 +45,7 @@ class TranscriptService {
         const errorMessage = error.response.data?.error || 'Failed to fetch transcript';
         throw new Error(errorMessage);
       } else if (error.code === 'ERR_NETWORK') {
-        throw new Error('Transcript server is not running. Please start the Python backend server.');
+        throw new Error('Transcript server is not running. Please check the backend server.');
       }
 
       throw error;
