@@ -1,6 +1,8 @@
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const REDIRECT_URI = 'http://localhost:5173/oauth/callback';
+
+// Dynamically get redirect URI based on current domain (works for localhost and production)
+const getRedirectUri = () => `${window.location.origin}/oauth/callback`;
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.readonly',
@@ -75,7 +77,7 @@ class AuthService {
 
     const params = new URLSearchParams({
       client_id: this.clientId,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: getRedirectUri(),
       response_type: 'code',
       scope: SCOPES.join(' '),
       access_type: 'offline',
@@ -118,7 +120,7 @@ class AuthService {
     try {
       console.log('Exchanging code for token...');
       console.log('Client ID:', this.clientId);
-      console.log('Redirect URI:', REDIRECT_URI);
+      console.log('Redirect URI:', getRedirectUri());
 
       const response = await fetch(GOOGLE_TOKEN_URL, {
         method: 'POST',
@@ -129,7 +131,7 @@ class AuthService {
           code: code,
           client_id: this.clientId,
           client_secret: this.clientSecret,
-          redirect_uri: REDIRECT_URI,
+          redirect_uri: getRedirectUri(),
           grant_type: 'authorization_code',
         }),
       });
@@ -144,7 +146,7 @@ class AuthService {
           throw new Error('Invalid Client ID or Client Secret. Please check your OAuth credentials in Settings.');
         }
         if (error.error === 'redirect_uri_mismatch') {
-          throw new Error('Redirect URI mismatch. Make sure http://localhost:5173/oauth/callback is configured in Google Cloud Console.');
+          throw new Error(`Redirect URI mismatch. Make sure ${getRedirectUri()} is configured in Google Cloud Console.`);
         }
         throw new Error(error.error_description || `Token exchange failed: ${error.error}`);
       }
