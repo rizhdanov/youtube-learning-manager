@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import authService from '../services/authService';
+import storageService from '../services/storageService';
 import { FiLoader } from 'react-icons/fi';
 import './OAuthCallback.css';
 
 const OAuthCallback = ({ onComplete }) => {
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('Loading settings...');
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -32,6 +34,17 @@ const OAuthCallback = ({ onComplete }) => {
       }
 
       try {
+        // Load settings from backend first (needed for client ID/secret)
+        setStatus('Loading credentials...');
+        const settings = await storageService.loadSettingsFromFile();
+
+        if (settings && settings.youtubeClientId && settings.youtubeClientSecret) {
+          authService.setCredentials(settings.youtubeClientId, settings.youtubeClientSecret);
+        } else {
+          throw new Error('YouTube credentials not found. Please configure them in Settings first.');
+        }
+
+        setStatus('Exchanging authorization code...');
         await authService.handleOAuthCallback(code, state);
         window.history.replaceState({}, '', '/');
         onComplete(true);
@@ -61,7 +74,7 @@ const OAuthCallback = ({ onComplete }) => {
           <>
             <FiLoader className="oauth-spinner" />
             <h2>Completing Authentication</h2>
-            <p>Please wait while we complete your sign-in...</p>
+            <p>{status}</p>
           </>
         )}
       </div>
