@@ -220,7 +220,13 @@ def get_transcript(video_id):
         # Try without language preference (get any available)
         try:
             transcript_list = ytt_api.list(video_id)
-            transcript = transcript_list[0].fetch()
+            # Iterate to get first available transcript
+            transcript = None
+            for t in transcript_list:
+                transcript = t.fetch()
+                break
+            if not transcript:
+                raise Exception("No transcripts available")
             full_text = ' '.join([entry.text for entry in transcript])
 
             return jsonify({
